@@ -249,6 +249,14 @@ public:
             std::to_string(std::get<1>(restriction)) +
             ": duplicate restrictions");
       }
+      if (std::get<0>(restriction) >= x || std::get<1>(restriction) >= y ||
+          std::get<2>(restriction) >= max_height) {
+        throw BadShipOperationException(
+            std::to_string(__LINE__) + " : " +
+            std::to_string(std::get<0>(restriction)) + "," +
+            std::to_string(std::get<1>(restriction)) + "," +
+            std::to_string(std::get<2>(restriction)) + ": Bad restrictions");
+      }
       restrictions_[current_pos] = Height{std::get<2>(restriction)};
     }
   }
@@ -263,23 +271,23 @@ public:
   void load(X x, Y y, Container c) noexcept(false) {
     // TODO: (5) handle height of the container
     shipping::Position current_pos = shipping::Position(x, y);
+    auto &current_compartment_size = stacked_compartment_sizes[pos_index(x, y)];
     if (restrictions_.find(current_pos) != restrictions_.end() &&
-        restrictions_[current_pos] <=
-            stacked_compartment_sizes[pos_index(x, y)]) {
+        restrictions_[current_pos] <= current_compartment_size) {
       throw BadShipOperationException(
           std::to_string(__LINE__) + " : " + std::to_string(x) + "," +
           std::to_string(y) +
           ": has restriction : " + std::to_string(restrictions_[current_pos]));
     }
     // std::cout << "Load:" << __LINE__ << std::endl;
-    auto &current_compartment_size = stacked_compartment_sizes[pos_index(x, y)];
-    auto &container =
-        stacked_containers[pos_index(x, y, (Height)(current_compartment_size))];
     if (current_compartment_size == h_size) {
       throw BadShipOperationException(
           std::to_string(__LINE__) + " : " + std::to_string(x) + "," +
           std::to_string(y) + ": occupied compartment");
     }
+
+    auto &container =
+        stacked_containers[pos_index(x, y, (Height)(current_compartment_size))];
 
     container = std::move(c);
     addContainerToGroups(x, y, (Height)current_compartment_size);
@@ -295,14 +303,12 @@ public:
           std::to_string(__LINE__) + " : " + std::to_string(x) + "," +
           std::to_string(y) + ": no container to unload");
     }
-
+    removeContainerFromGroups(x, y, (Height)unload_index);
+    removeContainerFromPList(x, y, (Height)unload_index);
     auto &unload_container =
         stacked_containers[pos_index(x, y, (Height)unload_index)];
     auto empty_container = std::optional<Container>{};
     std::swap(unload_container, empty_container);
-
-    removeContainerFromGroups(x, y, (Height)unload_index);
-    removeContainerFromPList(x, y, (Height)unload_index);
     current_compartment_size--;
     return empty_container.value();
   }
